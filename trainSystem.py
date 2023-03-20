@@ -251,11 +251,9 @@ def buyTicket(customerID):
     cart_dict = dict()
     for cart in result:
         cart_dict[str(cart[0])] = cart[1]
-    print(cart_dict)
 
     time_now = datetime.datetime.now()
     new_order = f"INSERT INTO Ordre (kundenummer, ordredato, ordretid) VALUES ({customerID}, \"{time_now.date()}\",\"{time_now.time().strftime('%H:%M')}\");"
-    # print(new_order)
     cursor.execute(new_order)
 
     get_order_num = f"SELECT max(ordrenummer) FROM Ordre WHERE kundenummer={customerID}"
@@ -316,26 +314,56 @@ def buyTicket(customerID):
 #TODO test på nattog (evt. fix)
 def findValidSeats(rute,date,start,end):
     #Finner alle setebilletter som er solgt på denne togruten (med avreise for start, og ankomst tid i endestasjon)
-    query = f"SELECT Sete.vognID, Sete.setenummer, Billett.start, Start.avreise, Billett.ende, Ende.ankomst FROM Togrute JOIN VognOppsett USING(ruteID) JOIN Vogn USING(vognID) JOIN Sete USING(vognID) JOIN SitteBillett ON Sete.vognID=SitteBillett.vognID AND Sete.setenummer=SitteBillett.setenummer JOIN Billett USING(billettID) JOIN Rutetabell AS Start ON Billett.start=Start.stasjonNavn AND Togrute.ruteID=Start.ruteID JOIN Rutetabell AS Ende ON Billett.ende=Ende.stasjonNavn AND Togrute.ruteID=Ende.ruteID WHERE Togrute.ruteID={rute} AND Billett.dato=\"{date}\";"
+    query = f"SELECT Sete.vognID, Sete.setenummer, Billett.start,Billett.ende FROM Togrute JOIN VognOppsett USING(ruteID) JOIN Vogn USING(vognID) JOIN Sete USING(vognID) JOIN SitteBillett ON Sete.vognID=SitteBillett.vognID AND Sete.setenummer=SitteBillett.setenummer JOIN Billett USING(billettID) JOIN Rutetabell AS Start ON Billett.start=Start.stasjonNavn AND Togrute.ruteID=Start.ruteID JOIN Rutetabell AS Ende ON Billett.ende=Ende.stasjonNavn AND Togrute.ruteID=Ende.ruteID WHERE Togrute.ruteID={rute} AND Billett.dato=\"{date}\";"
     cursor.execute(query)
     purchased_tickets = cursor.fetchall()
 
-    #Tabell med 1 rad som har avgang fra start- og ankomst på ende-stasjon som brukeren ønsket å kjøpe billett for
-    query = f"SELECT Start.avreise, Ende.ankomst FROM (SELECT * FROM Rutetabell WHERE ruteID={rute} AND LOWER(stasjonNavn)=LOWER(\"{start}\")) AS Start JOIN (SELECT * FROM Rutetabell WHERE ruteID={rute} AND LOWER(stasjonNavn)=LOWER(\"{end}\")) AS Ende"
+    #Henter ut alle delstrekninger på banestrekningen ruten kjører på
+    query = f"SELECT stasjonA, stasjonB FROM Togrute JOIN Banestrekning USING(strekningID) JOIN Delstrekning USING(strekningID) WHERE ruteID={rute};"
     cursor.execute(query)
-    desired_ticket = cursor.fetchall()
+    stretches = cursor.fetchall()
 
-    #Henter ut avreise, og ankomst tid for ønskede stasjoner på ønsket rute som date-objekter
-    arrival = datetime.datetime.strptime(desired_ticket[0][1], "%H:%M").time()
-    departure = datetime.datetime.strptime(desired_ticket[0][0], "%H:%M").time()
 
-    #Finner alle seter som ikke kan selges til kunden, gitt hvilke stasjoner de skal reise via
+    #Finner rekkefølgen stasjonene kommer i på strekningen ruten kjører på (ikke nødvendigvis i rutens kjøreretning)
+    station_order = list()
+    stretch_count = dict()
+    for stretch in stretches:
+        if(stretch_count.get(str(stretch[0]))==None):
+            stretch_count[str(stretch[0])] = 0
+        if(stretch_count.get(str(stretch[1]))==None):
+            stretch_count[str(stretch[1])] = 0
+        stretch_count[str(stretch[0])] += 1
+        stretch_count[str(stretch[1])] += 1
+    for key, val in stretch_count.items():
+        if(val==1):
+            station_order.append(key)
+            break
+    for _ in stretches:
+        station = station_order[-1]
+        to_append = str()
+        for stretch in stretches:
+            if(station in stretch):
+                if(stretch[0] in station_order and stretch[1] in station_order):
+                    continue
+                to_append = stretch[0]
+                if(to_append == station):
+                    to_append=stretch[1]
+        station_order.append(to_append)
+    
+
+    #Reverserer stasjonsrekkefølgen dersom ruten kjører den andre veien
+    if(station_order.index(start)>station_order.index(end)):
+        station_order.reverse()
+    departure = station_order.index(start)
+    arrival = station_order.index(end)
+    
+    #Finner billetter som ikke kan selges til brukeren
     cant_purchase = list()
     for ticket in purchased_tickets:
-        taken_dep = datetime.datetime.strptime(ticket[-3], "%H:%M").time()
-        taken_ariv = datetime.datetime.strptime(ticket[-1], "%H:%M").time()
+        taken_dep = station_order.index(ticket[2])
+        taken_ariv = station_order.index(ticket[3])
 
-        #Ser etter overlapp mellom ønsket billettstrekning og opptatte billetter
+
         if(taken_dep<arrival and arrival<=taken_ariv):
             #Legger til vognID, setenummer i billetter som ikke kan kjøpes
             cant_purchase.append((ticket[0], ticket[1]))
@@ -346,20 +374,6 @@ def findValidSeats(rute,date,start,end):
         if(taken_ariv<=arrival and departure<=taken_dep):
             cant_purchase.append((ticket[0], ticket[1]))
             continue
-    
-    #Finner alle seter på valgt togrute
-    query = f"SELECT vognID, setenummer FROM Sete JOIN Vogn USING(vognID) JOIN VognOppsett USING(vognID) WHERE VognOppsett.ruteID={rute}"
-    cursor.execute(query)
-    seats = cursor.fetchall()
-
-    #TODO Remove
-    # #Fjerner alle ugyldige seter fra setelisten og returnerer
-    # can_purchase = list()
-    # for seat in seats:
-    #     if(seat in cant_purchase):
-    #         continue
-    #     else:
-    #         can_purchase.append(seat)
     
     #Workaround for weird bug with list to tuple conversion in python
     if(len(cant_purchase)==1):
