@@ -126,11 +126,35 @@ def viewTickets(customerID):
         print("Du er ikke logget inn, og har derav ingen kjøp å vise")
         return
     
-    query_seattickets = f"SELECT Ordre.ordrenummer, Ordre.ordredato, Ordre.ordretid, Billett.ruteID, Billett.start, Start.avreise, Billett.ende, Ende.ankomst, Billett.dato AS avreisedato, VognOppsett.vognnummer, SitteBillett.setenummer FROM Ordre JOIN Billett USING(ordrenummer) JOIN SitteBillett USING(billettID) JOIN Sete USING(vognID, setenummer) JOIN Vogn USING(vognID) JOIN VognOppsett USING(vognID, ruteID) JOIN Togrute USING(ruteID) JOIN Rutetabell as Start ON Start.ruteID=Billett.ruteID AND Start.stasjonNavn=Billett.start JOIN Rutetabell as Ende ON Ende.ruteID=Billett.ruteID AND Ende.stasjonNavn=Billett.ende WHERE DATE(Billett.dato)>DATE(\"{datetime.datetime.now().date()}\") AND Ordre.kundenummer={customerID} ORDER BY Billett.dato, Ordre.ordrenummer, Billett.ruteID;"
+    query_seattickets = f"""
+    SELECT Ordre.ordrenummer, Ordre.ordredato, Ordre.ordretid, Billett.ruteID, Billett.start, Start.avreise, Billett.ende, Ende.ankomst, Billett.dato AS avreisedato, VognOppsett.vognnummer, SitteBillett.setenummer 
+    FROM Ordre 
+    JOIN Billett USING(ordrenummer) 
+    JOIN SitteBillett USING(billettID) 
+    JOIN Sete USING(vognID, setenummer) 
+    JOIN Vogn USING(vognID) 
+    JOIN VognOppsett USING(vognID, ruteID) 
+    JOIN Togrute USING(ruteID) 
+    JOIN Rutetabell as Start ON Start.ruteID=Billett.ruteID AND Start.stasjonNavn=Billett.start 
+    JOIN Rutetabell as Ende ON Ende.ruteID=Billett.ruteID AND Ende.stasjonNavn=Billett.ende 
+    WHERE DATE(Billett.dato)>DATE(\"{datetime.datetime.now().date()}\") AND Ordre.kundenummer={customerID} 
+    ORDER BY Billett.dato, Ordre.ordrenummer, Billett.ruteID;"""
     cursor.execute(query_seattickets)
     seattickets = cursor.fetchall()
 
-    query_sleeptickets = f"SELECT Ordre.ordrenummer, Ordre.ordredato, Ordre.ordretid, Billett.ruteID, Billett.start, Start.avreise, Billett.ende, Ende.ankomst, Billett.dato AS avreisedato, VognOppsett.vognnummer, SoveBillett.kupeenummer FROM Ordre JOIN Billett USING(ordrenummer) JOIN SoveBillett USING(billettID) JOIN Kupee USING(vognID, kupeenummer) JOIN Vogn USING(vognID) JOIN VognOppsett USING(vognID, ruteID) JOIN Togrute USING(ruteID) JOIN Rutetabell as Start ON Start.ruteID=Billett.ruteID AND Start.stasjonNavn=Billett.start JOIN Rutetabell as Ende ON Ende.ruteID=Billett.ruteID AND Ende.stasjonNavn=Billett.ende WHERE DATE(Billett.dato)>DATE(\"{datetime.datetime.now().date()}\") AND Ordre.kundenummer={customerID} ORDER BY Billett.dato, Ordre.ordrenummer, Billett.ruteID;"
+    query_sleeptickets = f"""
+    SELECT Ordre.ordrenummer, Ordre.ordredato, Ordre.ordretid, Billett.ruteID, Billett.start, Start.avreise, Billett.ende, Ende.ankomst, Billett.dato AS avreisedato, VognOppsett.vognnummer, SoveBillett.kupeenummer 
+    FROM Ordre 
+    JOIN Billett USING(ordrenummer) 
+    JOIN SoveBillett USING(billettID) 
+    JOIN Kupee USING(vognID, kupeenummer) 
+    JOIN Vogn USING(vognID) 
+    JOIN VognOppsett USING(vognID, ruteID) 
+    JOIN Togrute USING(ruteID) 
+    JOIN Rutetabell as Start ON Start.ruteID=Billett.ruteID AND Start.stasjonNavn=Billett.start 
+    JOIN Rutetabell as Ende ON Ende.ruteID=Billett.ruteID AND Ende.stasjonNavn=Billett.ende 
+    WHERE DATE(Billett.dato)>DATE(\"{datetime.datetime.now().date()}\") AND Ordre.kundenummer={customerID} 
+    ORDER BY Billett.dato, Ordre.ordrenummer, Billett.ruteID;"""
     cursor.execute(query_sleeptickets)
     sleeptickets = cursor.fetchall()
 
@@ -159,7 +183,17 @@ def viewRoutes():
             continue
         day = input("Hvilken ukedag ønsker du å se ruter for? ")
         
-        query = f"SELECT Togrute.ruteID as rutenummer,Rutetabell.stasjonNavn as stasjon, endestasjon, Rutetabell.ankomst, Rutetabell.avreise, KjørerPåDag.ukedag FROM Rutetabell JOIN Togrute ON Togrute.ruteID=Rutetabell.ruteID JOIN KjørerPåDag ON Togrute.ruteID=KjørerPåDag.ruteID JOIN (SELECT Rutetabell.stasjonNavn AS endestasjon, Togrute.ruteID FROM Rutetabell JOIN Togrute ON Rutetabell.ruteID=Togrute.ruteID WHERE Rutetabell.avreise IS NULL) USING(ruteID) WHERE LOWER(ukedag)=LOWER(\"{day}\") AND LOWER(stasjonNavn)=LOWER(\"{station}\");"        
+        query = f"""
+        SELECT Togrute.ruteID as rutenummer,Rutetabell.stasjonNavn as stasjon, endestasjon, Rutetabell.ankomst, Rutetabell.avreise, KjørerPåDag.ukedag 
+        FROM Rutetabell 
+        JOIN Togrute ON Togrute.ruteID=Rutetabell.ruteID 
+        JOIN KjørerPåDag ON Togrute.ruteID=KjørerPåDag.ruteID 
+        JOIN 
+            (SELECT Rutetabell.stasjonNavn AS endestasjon, Togrute.ruteID 
+            FROM Rutetabell 
+            JOIN Togrute ON Rutetabell.ruteID=Togrute.ruteID 
+            WHERE Rutetabell.avreise IS NULL) USING(ruteID) 
+        WHERE LOWER(ukedag)=LOWER(\"{day}\") AND LOWER(stasjonNavn)=LOWER(\"{station}\");"""       
         cursor.execute(query)
         result = cursor.fetchall()
         print(f"Her er alle rutene som passererer {station} på {day}er")
@@ -187,8 +221,20 @@ def searchRoutes():
     
 
 
-    #Ikke endre rekkefølgen her, da det for virkninger ellers i koden
-    query = f"SELECT Togrute.ruteID, Start.stasjonNavn AS start, Start.avreise,Ende.stasjonNavn AS ende, Ende.ankomst, dato FROM Rutetabell AS Start JOIN Togrute USING(ruteID) JOIN TogruteForekomst USING(ruteID) JOIN Rutetabell AS Ende USING(ruteID) WHERE (dato=\"{date}\" OR dato=\"{date + datetime.timedelta(days=1)}\") AND LOWER(start)=LOWER(\"{start}\") AND LOWER(ende)=LOWER(\"{end}\") AND ((Ende.ankomst>Start.avreise AND Start.neste_dag=Ende.neste_dag) OR (Ende.neste_dag=1 AND Start.neste_dag=0)) ORDER BY dato, Start.avreise;"
+    #Ikke endre rekkefølgen her, da det får virkninger ellers i koden
+    query = f"""
+    SELECT Togrute.ruteID, Start.stasjonNavn AS start, Start.avreise,Ende.stasjonNavn AS ende, Ende.ankomst, dato 
+    FROM Rutetabell AS Start 
+    JOIN Togrute USING(ruteID) 
+    JOIN TogruteForekomst USING(ruteID) 
+    JOIN Rutetabell AS Ende USING(ruteID) 
+    WHERE 
+        (dato=\"{date}\" OR dato=\"{date + datetime.timedelta(days=1)}\") 
+        AND 
+        LOWER(start)=LOWER(\"{start}\") AND LOWER(ende)=LOWER(\"{end}\") 
+        AND 
+        ((Ende.ankomst>Start.avreise AND Start.neste_dag=Ende.neste_dag) OR (Ende.neste_dag=1 AND Start.neste_dag=0)) 
+    ORDER BY dato, Start.avreise;"""
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -267,7 +313,10 @@ def buyTicket(customerID):
         cart_dict[str(cart[0])] = cart[1]
 
     time_now = datetime.datetime.now()
-    new_order = f"INSERT INTO Ordre (kundenummer, ordredato, ordretid) VALUES ({customerID}, \"{time_now.date()}\",\"{time_now.time().strftime('%H:%M')}\");"
+    new_order = f"""
+    INSERT INTO Ordre (kundenummer, ordredato, ordretid) 
+    VALUES ({customerID}, \"{time_now.date()}\",\"{time_now.time().strftime('%H:%M')}\");"""
+
     cursor.execute(new_order)
 
     get_order_num = f"SELECT max(ordrenummer) FROM Ordre WHERE kundenummer={customerID}"
@@ -327,12 +376,26 @@ def buyTicket(customerID):
 
 def findValidSeats(rute,date,start,end):
     #Finner alle setebilletter som er solgt på denne togruten (med avreise for start, og ankomst tid i endestasjon)
-    query = f"SELECT Sete.vognID, Sete.setenummer, Billett.start,Billett.ende FROM Togrute JOIN VognOppsett USING(ruteID) JOIN Vogn USING(vognID) JOIN Sete USING(vognID) JOIN SitteBillett ON Sete.vognID=SitteBillett.vognID AND Sete.setenummer=SitteBillett.setenummer JOIN Billett USING(billettID) JOIN Rutetabell AS Start ON Billett.start=Start.stasjonNavn AND Togrute.ruteID=Start.ruteID JOIN Rutetabell AS Ende ON Billett.ende=Ende.stasjonNavn AND Togrute.ruteID=Ende.ruteID WHERE Togrute.ruteID={rute} AND Billett.dato=\"{date}\";"
+    query = f"""
+    SELECT Sete.vognID, Sete.setenummer, Billett.start,Billett.ende 
+    FROM Togrute 
+    JOIN VognOppsett USING(ruteID) 
+    JOIN Vogn USING(vognID) 
+    JOIN Sete USING(vognID) 
+    JOIN SitteBillett ON Sete.vognID=SitteBillett.vognID AND Sete.setenummer=SitteBillett.setenummer 
+    JOIN Billett USING(billettID) JOIN Rutetabell AS Start ON Billett.start=Start.stasjonNavn AND Togrute.ruteID=Start.ruteID 
+    JOIN Rutetabell AS Ende ON Billett.ende=Ende.stasjonNavn AND Togrute.ruteID=Ende.ruteID 
+    WHERE Togrute.ruteID={rute} AND Billett.dato=\"{date}\";"""
     cursor.execute(query)
     purchased_tickets = cursor.fetchall()
 
     #Henter ut alle delstrekninger på banestrekningen ruten kjører på
-    query = f"SELECT stasjonA, stasjonB FROM Togrute JOIN Banestrekning USING(strekningID) JOIN Delstrekning USING(strekningID) WHERE ruteID={rute};"
+    query = f"""
+    SELECT stasjonA, stasjonB 
+    FROM Togrute 
+    JOIN Banestrekning USING(strekningID) 
+    JOIN Delstrekning USING(strekningID) 
+    WHERE ruteID={rute};"""
     cursor.execute(query)
     stretches = cursor.fetchall()
 
@@ -396,7 +459,11 @@ def findValidSeats(rute,date,start,end):
     cant_purchase = tuple(cant_purchase)
 
 
-    query = f"SELECT vognnummer, setenummer FROM Sete JOIN Vogn USING(vognID) JOIN VognOppsett USING(vognID) WHERE VognOppsett.ruteID={rute} AND (Sete.vognID, Sete.setenummer) NOT IN {cant_purchase}"
+    query = f"""
+    SELECT vognnummer, setenummer 
+    FROM Sete JOIN Vogn USING(vognID) 
+    JOIN VognOppsett USING(vognID) 
+    WHERE VognOppsett.ruteID={rute} AND (Sete.vognID, Sete.setenummer) NOT IN {cant_purchase}"""
     cursor.execute(query)
     result = cursor.fetchall()
 
@@ -407,7 +474,14 @@ def findValidSeats(rute,date,start,end):
 def findValidBeds(rute, date):
 
     #Finner alle kupeer som er solgt
-    query = f"SELECT VognOppsett.vognnummer, Kupee.kupeenummer FROM Kupee JOIN Vogn USING(vognID) JOIN VognOppsett USING(vognID) WHERE (Kupee.vognID, Kupee.kupeenummer) NOT IN (SELECT SoveBillett.vognID, SoveBillett.kupeenummer FROM Billett JOIN SoveBillett USING(billettID) WHERE Billett.dato=\"{date}\") AND VognOppsett.ruteID={rute}"
+    query = f"""
+    SELECT VognOppsett.vognnummer, Kupee.kupeenummer 
+    FROM Kupee 
+    JOIN Vogn USING(vognID) 
+    JOIN VognOppsett USING(vognID) 
+    WHERE (Kupee.vognID, Kupee.kupeenummer) NOT IN 
+        (SELECT SoveBillett.vognID, SoveBillett.kupeenummer FROM Billett JOIN SoveBillett USING(billettID) 
+        WHERE Billett.dato=\"{date}\") AND VognOppsett.ruteID={rute}"""
     cursor.execute(query)
     available_bedrooms = cursor.fetchall()
     return available_bedrooms
@@ -431,25 +505,24 @@ def main():
         print("")
         selected = menuSelection(validChoices)
 
-        match selected:
-            case "lukk":
-                return
-            case "registrer":
-                customer = registerCustomer()
-                print("Du er nå logget inn som:",customer[1],"("+str(customer[0])+")")
-            case "logginn":
-                customer = logIn()
-                print("Du er nå logget inn som:",customer[1],"("+str(customer[0])+")")
-            case "billetter":
-                viewTickets(customer[0])
-            case "ruter":
-                viewRoutes()
-            case "søk":
-                searchRoutes()
-            case "kjøpe":
+        if(selected=="lukk"):
+            return
+        elif(selected=="registrer"):
+            customer = registerCustomer()
+            print("Du er nå logget inn som:",customer[1],"("+str(customer[0])+")")
+        elif(selected=="logginn"):
+            customer = logIn()
+            print("Du er nå logget inn som:",customer[1],"("+str(customer[0])+")")
+        elif(selected=="billetter"):
+            viewTickets(customer[0])
+        elif(selected=="ruter"):
+            viewRoutes()
+        elif(selected=="søk"):
+            searchRoutes()
+        elif(selected=="kjøpe"):
                 buyTicket(customer[0])
-            case _:
-                print("Beklager, noe gikk galt, prøv igjen senere")
+        else:
+            print("Beklager, noe gikk galt, prøv igjen senere")
 
 if __name__=="__main__":
     main()
