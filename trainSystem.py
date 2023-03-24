@@ -53,14 +53,15 @@ def printTable(headers,rows):
 
 #Åpner menyen for å gi brukeren valg
 def menuSelection(validChoices):
-    header = "Hva ønsker du å gjøre? (skriv inn teksten som står inne i '[]')"
-    divider = "-"*len(header)
+    
     while True:
-        print(header)
-        print(divider)
-        for key, desc in validChoices.items():
-            print(desc, "[" + key + "]")
-        print("\n")
+        
+        to_print = list()
+        for key, val in validChoices.items():
+            to_print.append((val,key))
+        printTable(["Hva ønsker du å gjøre?", "Skriv inn dette!"],to_print)
+
+
         selection = input("Ditt valg: ")
         for key in validChoices.keys():
             if(selection==key):
@@ -100,6 +101,14 @@ def registerCustomer():
 def logIn():
     while True:
         number = input("Hva er ditt kundenummer? ")
+        if(len(number)==0):
+            print("Vennligst skriv inn ditt kundenummer")
+            continue
+        try:
+            number = int(number)
+        except:
+            print("Vennligst skriv inn et tall")
+            continue
         query = f"SELECT * FROM Kunde WHERE kundenummer={number};"
         cursor.execute(query)
         result = cursor.fetchall()
@@ -137,7 +146,6 @@ def viewTickets(customerID):
 #Viser alle ruter som går forbi en stasjon brukeren velger på en ukedag
 # brukeren velger
 def viewRoutes():
-#TODO endre på query slik at man kan se hvor toget går hen
     while True:
         station = input("Hvilken stasjon ønsker du å se ruter for? (skriv 'hjelp' for en liste over stasjoner) ")
         if(station=="lukk"):
@@ -156,8 +164,7 @@ def viewRoutes():
         result = cursor.fetchall()
         print(f"Her er alle rutene som passererer {station} på {day}er")
         printTable(["Rutenummer", "Stasjon", "Reiser mot","Ankomst", "Avreise", "Ukedag"], result)
-
-        print("Skriv 'lukk' for å gå tilbake til hovedmenyen")
+        break
 
     return
 
@@ -166,12 +173,18 @@ def searchRoutes():
     start = input("Hvor reiser du fra? ")
     end = input("Hvor ønsker du å reise? ")
 
-    #TODO gi ordentlig feilmelding/repeter input dersom input er på feil format
-    date_input = input("Hvilken dato ønsker du å reise (DD.MM.YYYY) ")
-    time_input = input("Hvilket klokkeslett ønsker du å søke fra? (hh:mm) ")
+    while True:
+        try:
+            date_input = input("Hvilken dato ønsker du å reise (DD.MM.YYYY) ")
+            time_input = input("Hvilket klokkeslett ønsker du å søke fra? (hh:mm) ")
+
+            date = datetime.datetime.strptime(date_input, "%d.%m.%Y").date()
+            time = datetime.datetime.strptime(time_input, "%H:%M").time()
+            break
+        except:
+            print("Vennligst skriv inn dato og klokkeslett etter beskrevet format")
+            continue
     
-    date = datetime.datetime.strptime(date_input, "%d.%m.%Y").date()
-    time = datetime.datetime.strptime(time_input, "%H:%M").time()
 
 
     #Ikke endre rekkefølgen her, da det for virkninger ellers i koden
@@ -227,7 +240,7 @@ def buyTicket(customerID):
 
     #Printer alle gyldige seter/kupeer som brukeren kan kjøpe (altså seter som ikke er opptatt på deres reise, og kupeer som ikke er solgt)
     print("Her er alle de ledige setene/kupeene på din valgte reise:\n\n")
-    #TODO print gyldige seter penere og med vognnummer istedet for vognID
+
     print("Sitteplasser: ")
     valid_seats = findValidSeats(ruteID, date, start, end)
     printTable(["Vognnummer", "Setenummer"], valid_seats)
@@ -235,7 +248,8 @@ def buyTicket(customerID):
 
     print("Soveplasser: ")
     print("(Hver kupee har 2 soveplasser)")
-    #TODO print gyldige senger/kupeer med vognnummer
+
+
     valid_bedrooms = findValidBeds(ruteID, date)
     printTable(["Vognnummer", "Kupeenummer"], valid_bedrooms)
 
@@ -311,7 +325,6 @@ def buyTicket(customerID):
 
 
 
-#TODO test på nattog (evt. fix)
 def findValidSeats(rute,date,start,end):
     #Finner alle setebilletter som er solgt på denne togruten (med avreise for start, og ankomst tid i endestasjon)
     query = f"SELECT Sete.vognID, Sete.setenummer, Billett.start,Billett.ende FROM Togrute JOIN VognOppsett USING(ruteID) JOIN Vogn USING(vognID) JOIN Sete USING(vognID) JOIN SitteBillett ON Sete.vognID=SitteBillett.vognID AND Sete.setenummer=SitteBillett.setenummer JOIN Billett USING(billettID) JOIN Rutetabell AS Start ON Billett.start=Start.stasjonNavn AND Togrute.ruteID=Start.ruteID JOIN Rutetabell AS Ende ON Billett.ende=Ende.stasjonNavn AND Togrute.ruteID=Ende.ruteID WHERE Togrute.ruteID={rute} AND Billett.dato=\"{date}\";"
@@ -408,13 +421,14 @@ def main():
         "registrer":"Registrer ny kunde",
         "billetter":"Se dine fremtidige reiser",
         "ruter":"Hvilke ruter passerer min stasjon på en gitt ukedag",
-        "reise":"Finn togruter mellom to stasjoner på valgt tidspunkt",
+        "søk":"Finn togruter mellom to stasjoner på valgt tidspunkt",
         "kjøpe":"Kjøpe billett for ønsket rute",
         "lukk":"Lukk programmet"
     }
-    print("----Velkommen til jernbanens nye høyteknologiske billettsystem----")
+    welcome = "----Velkommen til jernbanens nye høyteknologiske billettsystem----"
+    print(welcome)
     while True:
-        print("\n\n\n")
+        print("")
         selected = menuSelection(validChoices)
 
         match selected:
@@ -430,7 +444,7 @@ def main():
                 viewTickets(customer[0])
             case "ruter":
                 viewRoutes()
-            case "reise":
+            case "søk":
                 searchRoutes()
             case "kjøpe":
                 buyTicket(customer[0])
